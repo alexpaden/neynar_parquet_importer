@@ -163,3 +163,84 @@ CREATE TABLE IF NOT EXISTS public.profile_with_addresses
 );
 
 -- TODO: add indexes to the tables as needed
+-- SHONI EDITS
+
+-- Casts
+CREATE INDEX IF NOT EXISTS idx_casts_hash ON public.casts (hash);
+CREATE INDEX IF NOT EXISTS idx_casts_root_parent_deleted ON public.casts (root_parent_hash, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_casts_root_parent_hash ON public.casts (root_parent_hash);
+CREATE INDEX IF NOT EXISTS idx_casts_hash_parent_hash ON public.casts (hash, parent_hash);
+CREATE INDEX IF NOT EXISTS idx_casts_parent_hash ON public.casts (parent_hash);
+CREATE INDEX IF NOT EXISTS idx_casts_fid ON public.casts (fid);
+CREATE INDEX IF NOT EXISTS idx_casts_timestamp ON public.casts (timestamp);
+CREATE INDEX IF NOT EXISTS idx_casts_parent_hash_hash ON public.casts (parent_hash, hash);
+CREATE INDEX IF NOT EXISTS idx_casts_fid_timestamp_hash ON public.casts (fid, timestamp, hash);
+
+-- Reactions
+CREATE INDEX IF NOT EXISTS idx_reactions_target_type ON public.reactions (target_hash, reaction_type);
+CREATE INDEX IF NOT EXISTS idx_reactions_target_fid_type ON public.reactions (target_hash, fid, reaction_type);
+CREATE INDEX IF NOT EXISTS idx_reactions_target_hash ON public.reactions (target_hash);
+CREATE INDEX IF NOT EXISTS idx_reactions_target_hash_reaction_type ON public.reactions (target_hash, reaction_type);
+
+-- Warpcast Power Users
+CREATE INDEX IF NOT EXISTS idx_warpcast_power_users_fid ON public.warpcast_power_users (fid);
+
+-- Profile with Addresses
+CREATE INDEX IF NOT EXISTS idx_profile_with_addresses_fid ON public.profile_with_addresses (fid);
+
+-- Storage
+CREATE UNIQUE INDEX IF NOT EXISTS unique_fid_units_expiry ON public.storage (fid, units, expiry);
+
+-- User Data
+CREATE UNIQUE INDEX IF NOT EXISTS user_data_hash_key ON public.user_data (hash);
+CREATE UNIQUE INDEX IF NOT EXISTS user_data_fid_type_unique ON public.user_data (fid, type);
+
+-- Links
+CREATE UNIQUE INDEX IF NOT EXISTS links_fid_target_fid_type_unique ON public.links (fid, target_fid, type);
+CREATE UNIQUE INDEX IF NOT EXISTS links_hash_unique ON public.links (hash);
+
+-- Signers
+CREATE UNIQUE INDEX IF NOT EXISTS unique_timestamp_fid_signer ON public.signers (timestamp, fid, signer);
+
+-- Verifications
+CREATE UNIQUE INDEX IF NOT EXISTS verifications_hash_key ON public.verifications (hash);
+
+CREATE TABLE IF NOT EXISTS channels (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    description TEXT,
+    image_url TEXT,
+    url TEXT,
+    follower_count INTEGER
+);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.engagement_metrics
+TABLESPACE pg_default
+AS SELECT c.fid,
+    c.hash,
+    c."timestamp",
+    c.deleted_at IS NOT NULL AS deleted,
+    date_trunc('month'::text, c."timestamp") AS month,
+    c.parent_url AS channel,
+    COALESCE(likes.likes_count, 0::bigint) AS likes_count,
+    COALESCE(recasts.recast_count, 0::bigint) AS recast_count,
+    COALESCE(comments.comment_count, 0::bigint) AS comment_count
+   FROM casts c
+     LEFT JOIN LATERAL ( SELECT count(*) AS likes_count
+           FROM reactions r
+          WHERE r.target_hash = c.hash AND r.reaction_type = 1) likes ON true
+     LEFT JOIN LATERAL ( SELECT count(*) AS recast_count
+           FROM reactions r
+          WHERE r.target_hash = c.hash AND r.reaction_type = 2) recasts ON true
+     LEFT JOIN LATERAL ( SELECT count(*) AS comment_count
+           FROM casts c2
+          WHERE c2.parent_hash = c.hash) comments ON true
+WITH DATA;
+
+
+-- Engagement Metrics
+CREATE INDEX IF NOT EXISTS idx_engagement_metrics_month ON public.engagement_metrics (month);
+CREATE INDEX IF NOT EXISTS idx_engagement_metrics_fid ON public.engagement_metrics (fid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_engagement_metrics_unique ON public.engagement_metrics (fid, hash);
+
+
