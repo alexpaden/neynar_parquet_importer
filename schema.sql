@@ -175,12 +175,16 @@ CREATE INDEX IF NOT EXISTS idx_casts_fid ON public.casts (fid);
 CREATE INDEX IF NOT EXISTS idx_casts_timestamp ON public.casts (timestamp);
 CREATE INDEX IF NOT EXISTS idx_casts_parent_hash_hash ON public.casts (parent_hash, hash);
 CREATE INDEX IF NOT EXISTS idx_casts_fid_timestamp_hash ON public.casts (fid, timestamp, hash);
+CREATE INDEX IF NOT EXISTS idx_casts_timestamp_parent_hash_fid ON public.casts (timestamp, parent_hash, fid);
+CREATE INDEX IF NOT EXISTS idx_casts_parent_url ON public.casts (parent_url);
+CREATE INDEX IF NOT EXISTS idx_casts_root_parent_hash_hash ON public.casts (root_parent_hash, hash);
 
 -- Reactions
 CREATE INDEX IF NOT EXISTS idx_reactions_target_type ON public.reactions (target_hash, reaction_type);
 CREATE INDEX IF NOT EXISTS idx_reactions_target_fid_type ON public.reactions (target_hash, fid, reaction_type);
 CREATE INDEX IF NOT EXISTS idx_reactions_target_hash ON public.reactions (target_hash);
 CREATE INDEX IF NOT EXISTS idx_reactions_target_hash_reaction_type ON public.reactions (target_hash, reaction_type);
+CREATE INDEX IF NOT EXISTS idx_reactions_timestamp_target_hash_fid ON public.reactions (timestamp, target_hash, fid);
 
 -- Warpcast Power Users
 CREATE INDEX IF NOT EXISTS idx_warpcast_power_users_fid ON public.warpcast_power_users (fid);
@@ -242,5 +246,7 @@ WITH DATA;
 CREATE INDEX IF NOT EXISTS idx_engagement_metrics_month ON public.engagement_metrics (month);
 CREATE INDEX IF NOT EXISTS idx_engagement_metrics_fid ON public.engagement_metrics (fid);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_engagement_metrics_unique ON public.engagement_metrics (fid, hash);
+CREATE INDEX IF NOT EXISTS idx_engagement_metrics_channel_timestamp ON public.engagement_metrics (channel, timestamp);
+CREATE INDEX IF NOT EXISTS idx_engagement_metrics_hash ON public.engagement_metrics (hash);
 
 
