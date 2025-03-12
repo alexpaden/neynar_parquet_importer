@@ -33,7 +33,6 @@ RUN apt-get update && apt-get install -y postgresql-plpython3-16 && \
 RUN echo 'CREATE SCHEMA IF NOT EXISTS farcaster;' > /docker-entrypoint-initdb.d/00_init_schemas.sql && \
     echo 'CREATE SCHEMA IF NOT EXISTS nindexer;' >> /docker-entrypoint-initdb.d/00_init_schemas.sql && \
     echo 'CREATE SCHEMA IF NOT EXISTS unbias;' >> /docker-entrypoint-initdb.d/00_init_schemas.sql
-
 # Create initialization script for all extensions
 RUN echo 'CREATE EXTENSION IF NOT EXISTS plpython3u;' > /docker-entrypoint-initdb.d/01_init_extensions.sql && \
     echo 'CREATE EXTENSION IF NOT EXISTS vector;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
