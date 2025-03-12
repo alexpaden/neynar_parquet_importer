@@ -1,0 +1,90 @@
+FROM postgres:16
+
+# Install necessary system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    postgresql-server-dev-16 \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libssl-dev \
+    pkg-config \
+    curl \
+    libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set PG_CONFIG for Postgres 16
+ENV PG_CONFIG=/usr/bin/pg_config
+
+# Install pgvector
+RUN cd /tmp && \
+    git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
+    cd pgvector && \
+    make USE_PGXS=1 PG_CONFIG=$PG_CONFIG && \
+    make install PG_CONFIG=$PG_CONFIG && \
+    rm -rf /tmp/pgvector
+
+# Add plpython3u before pgai
+RUN apt-get update && apt-get install -y postgresql-plpython3-16 && \
+    mkdir -p /docker-entrypoint-initdb.d
+
+# Create initialization script for all extensions
+RUN echo 'CREATE EXTENSION IF NOT EXISTS plpython3u;' > /docker-entrypoint-initdb.d/01_init_extensions.sql && \
+    echo 'CREATE EXTENSION IF NOT EXISTS vector;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
+    echo 'CREATE EXTENSION IF NOT EXISTS pg_cron;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
+    echo 'CREATE EXTENSION IF NOT EXISTS http;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
+    echo 'CREATE EXTENSION IF NOT EXISTS pgai;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql
+
+# -----------------------------------------------------------------------------
+# Install pgai - remove references to requirements.txt, use uv==0.5.20 directly
+# -----------------------------------------------------------------------------
+RUN git clone https://github.com/timescale/pgai.git /tmp/pgai && \
+    cd /tmp/pgai/projects/extension && \
+    python3 -m venv venv && \
+    . venv/bin/activate && \
+    pip install --no-cache-dir uv==0.5.20 && \
+    python3 build.py build && \
+    python3 build.py install && \
+    deactivate && \
+    rm -rf /tmp/pgai
+
+# Install pg_cron
+RUN apt-get update && apt-get install -y postgresql-16-cron && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install http extension
+RUN git clone https://github.com/pramsey/pgsql-http.git && \
+    cd pgsql-http && \
+    make && \
+    make install
+
+# Configure shared_preload_libraries and other settings
+RUN echo "shared_preload_libraries = 'pg_cron,pgvector,pgai,http'" \
+    >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "cron.database_name = 'neynar_parquet_importer'" \
+    >> /usr/share/postgresql/postgresql.conf.sample
+
+# (optional) Additional performance configs as you had them
+RUN echo "max_connections = 100" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "shared_buffers = '12GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "effective_cache_size = '32GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "maintenance_work_mem = '2GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "checkpoint_completion_target = 0.9" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "wal_buffers = '32MB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "random_page_cost = 1.1" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "effective_io_concurrency = 200" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "work_mem = '64MB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "min_wal_size = '8GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_wal_size = '32GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_worker_processes = 16" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_parallel_workers_per_gather = 4" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_parallel_workers = 16" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_parallel_maintenance_workers = 4" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "huge_pages = try" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "dynamic_shared_memory_type = posix" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "vacuum_cost_delay = 2" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "vacuum_cost_limit = 2000" >> /usr/share/postgresql/postgresql.conf.sample
+
+# Expose PostgreSQL port
+EXPOSE 5432

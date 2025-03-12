@@ -1,29 +1,115 @@
 services:
   postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: neynar_parquet_importer
+    build: 
+      context: .
+      dockerfile: Dockerfile.postgres
+    env_file:
+      - .env.postgres
     restart: unless-stopped
     ports:
       - "15432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '6'
+          memory: 64G
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d neynar_parquet_importer"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - neynar-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    shm_size: '32gb'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
 
-  app:
-    build: .
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile.parquet
+    tty: true
+    stdin_open: true
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file:
-      - .env
-    # restart: unless-stopped
+      - .env.v2
+    environment:
+      - INTERACTIVE_DEBUG=true
+      - COLUMNS=250
+      - LINES=75
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 32G
     volumes:
-      - ./data/parquet:/app/data/parquet
-      # # sharing `.aws` is only required if you have your AWS credentials on the host machine instead of in `.env`
-      - $HOME/.aws:/root/.aws
+      - parquet-files:/app/data/parquet
+      - $HOME/.aws:/root/.aws:delegated
+    networks:
+      - neynar-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile.parquet
+    tty: true
+    stdin_open: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.v3
+    environment:
+      - INTERACTIVE_DEBUG=true
+      - COLUMNS=250
+      - LINES=75
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 32G
+    volumes:
+      - parquet-files:/app/data/parquet
+      - $HOME/.aws:/root/.aws:delegated
+    networks:
+      - neynar-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+
+volumes:
+  postgres_data:
+  parquet-files:
+
+networks:
+  neynar-network:
+    name: neynar-network
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500
