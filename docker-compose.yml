@@ -10,6 +10,7 @@ services:
       - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - "/etc/localtime:/etc/localtime:ro"
     deploy:
       resources:
         limits:
@@ -36,6 +37,7 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    stop_grace_period: 120s
 
   app1:
     build:
@@ -61,6 +63,7 @@ services:
     volumes:
       - parquet-files:/app/data/parquet
       - $HOME/.aws:/root/.aws:delegated
+      - "/etc/localtime:/etc/localtime:ro"
     networks:
       - neynar-network
     logging:
@@ -94,6 +97,7 @@ services:
     volumes:
       - parquet-files:/app/data/parquet
       - $HOME/.aws:/root/.aws:delegated
+      - "/etc/localtime:/etc/localtime:ro"
     networks:
       - neynar-network
     logging:
