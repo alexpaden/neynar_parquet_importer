@@ -29,6 +29,11 @@ RUN cd /tmp && \
 RUN apt-get update && apt-get install -y postgresql-plpython3-16 && \
     mkdir -p /docker-entrypoint-initdb.d
 
+# Create initialization script for schemas
+RUN echo 'CREATE SCHEMA IF NOT EXISTS farcaster;' > /docker-entrypoint-initdb.d/00_init_schemas.sql && \
+    echo 'CREATE SCHEMA IF NOT EXISTS nindexer;' >> /docker-entrypoint-initdb.d/00_init_schemas.sql && \
+    echo 'CREATE SCHEMA IF NOT EXISTS unbias;' >> /docker-entrypoint-initdb.d/00_init_schemas.sql
+
 # Create initialization script for all extensions
 RUN echo 'CREATE EXTENSION IF NOT EXISTS plpython3u;' > /docker-entrypoint-initdb.d/01_init_extensions.sql && \
     echo 'CREATE EXTENSION IF NOT EXISTS vector;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
@@ -59,43 +64,41 @@ RUN git clone https://github.com/pramsey/pgsql-http.git && \
     make && \
     make install
 
-# Configure shared_preload_libraries and other settings
-RUN echo "shared_preload_libraries = 'pg_cron,pgvector,pgai,http'" \
-    >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "cron.database_name = 'neynar_parquet_importer'" \
-    >> /usr/share/postgresql/postgresql.conf.sample
+# Create configuration snippet for entrypoint script (preload)
+RUN echo "shared_preload_libraries = 'pg_cron,pgvector,pgai,http'" > /docker-entrypoint-initdb.d/99_preload_config.conf && \
+    echo "cron.database_name = 'neynar_parquet_importer'" >> /docker-entrypoint-initdb.d/99_preload_config.conf
 
-# (optional) Additional performance configs as you had them
-RUN echo "max_connections = 100" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "shared_buffers = '16GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "effective_cache_size = '48GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "maintenance_work_mem = '4GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "checkpoint_completion_target = 0.9" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "wal_buffers = '64MB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "random_page_cost = 1.1" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "effective_io_concurrency = 300" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "work_mem = '256MB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "min_wal_size = '8GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "max_wal_size = '32GB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "max_worker_processes = 48" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "max_parallel_workers_per_gather = 16" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "max_parallel_workers = 48" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "max_parallel_maintenance_workers = 16" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "parallel_leader_participation = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "parallel_tuple_cost = 0.05" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "parallel_setup_cost = 500.0" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "min_parallel_table_scan_size = '8MB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "min_parallel_index_scan_size = '512kB'" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "default_statistics_target = 1000" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "constraint_exclusion = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "enable_seqscan = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "enable_partitionwise_join = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "enable_partitionwise_aggregate = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "jit = on" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "huge_pages = try" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "dynamic_shared_memory_type = posix" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "vacuum_cost_delay = 2" >> /usr/share/postgresql/postgresql.conf.sample && \
-    echo "vacuum_cost_limit = 2000" >> /usr/share/postgresql/postgresql.conf.sample
+# Create configuration snippet for entrypoint script (performance)
+RUN echo "max_connections = 100" > /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "shared_buffers = '16GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "effective_cache_size = '48GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "maintenance_work_mem = '4GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "checkpoint_completion_target = 0.9" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "wal_buffers = '64MB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "random_page_cost = 1.1" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "effective_io_concurrency = 300" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "work_mem = '256MB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "min_wal_size = '8GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "max_wal_size = '32GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "max_worker_processes = 48" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "max_parallel_workers_per_gather = 16" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "max_parallel_workers = 48" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "max_parallel_maintenance_workers = 16" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "parallel_leader_participation = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "parallel_tuple_cost = 0.05" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "parallel_setup_cost = 500.0" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "min_parallel_table_scan_size = '8MB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "min_parallel_index_scan_size = '512kB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "default_statistics_target = 1000" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "constraint_exclusion = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "enable_seqscan = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "enable_partitionwise_join = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "enable_partitionwise_aggregate = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "jit = on" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "huge_pages = try" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "dynamic_shared_memory_type = posix" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "vacuum_cost_delay = 2" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "vacuum_cost_limit = 2000" >> /docker-entrypoint-initdb.d/98_performance_config.conf
 
 # Expose PostgreSQL port
 EXPOSE 5432
