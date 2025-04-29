@@ -5,17 +5,18 @@ services:
       dockerfile: Dockerfile.postgres
     env_file:
       - .env.postgres
+    environment:
+      - TZ=UTC
     restart: unless-stopped
     ports:
       - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - "/etc/localtime:/etc/localtime:ro"
     deploy:
       resources:
         limits:
           cpus: '16'
-          memory: 64G
+          memory: 76G
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d neynar_parquet_importer"]
       interval: 10s
@@ -54,16 +55,16 @@ services:
       - INTERACTIVE_DEBUG=true
       - COLUMNS=250
       - LINES=75
+      - TZ=UTC
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: 32G
+          cpus: '7'
+          memory: 64G
     volumes:
       - parquet-files:/app/data/parquet
       - $HOME/.aws:/root/.aws:delegated
-      - "/etc/localtime:/etc/localtime:ro"
     networks:
       - neynar-network
     logging:
@@ -73,39 +74,39 @@ services:
         max-file: "5"
         compress: "true"
 
-  app2:
-    build:
-      context: .
-      dockerfile: Dockerfile.parquet
-    tty: true
-    stdin_open: true
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env.v3
-    environment:
-      - INTERACTIVE_DEBUG=true
-      - COLUMNS=250
-      - LINES=75
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 32G
-    volumes:
-      - parquet-files:/app/data/parquet
-      - $HOME/.aws:/root/.aws:delegated
-      - "/etc/localtime:/etc/localtime:ro"
-    networks:
-      - neynar-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-        compress: "true"
+  # app2:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.parquet
+  #   tty: true
+  #   stdin_open: true
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env.v3
+  #   environment:
+  #     - INTERACTIVE_DEBUG=true
+  #     - COLUMNS=250
+  #     - LINES=75
+  #     - TZ=UTC
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '4'
+  #         memory: 32G
+  #   volumes:
+  #     - parquet-files:/app/data/parquet
+  #     - $HOME/.aws:/root/.aws:delegated
+  #   networks:
+  #     - neynar-network
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "5"
+  #       compress: "true"
 
 volumes:
   postgres_data:
