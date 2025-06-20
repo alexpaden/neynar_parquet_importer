@@ -39,19 +39,38 @@ RUN echo 'CREATE EXTENSION IF NOT EXISTS plpython3u;' > /docker-entrypoint-initd
     echo 'CREATE EXTENSION IF NOT EXISTS vector;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
     echo 'CREATE EXTENSION IF NOT EXISTS pg_cron;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
     echo 'CREATE EXTENSION IF NOT EXISTS http;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
-    echo 'CREATE EXTENSION IF NOT EXISTS pgai;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql
+    echo 'CREATE EXTENSION IF NOT EXISTS pgai;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql && \
+    echo 'CREATE EXTENSION IF NOT EXISTS pg_tiktoken;' >> /docker-entrypoint-initdb.d/01_init_extensions.sql
 
 # -----------------------------------------------------------------------------
-# Install pgai - remove references to requirements.txt, use uv==0.5.20 directly
+# Install pgai with proper dependencies and paths
 # -----------------------------------------------------------------------------
+# Install Python dependencies needed by pgai
+RUN apt-get update && apt-get install -y \
+    python3-dev \
+    python3-setuptools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and install pgai
 RUN git clone https://github.com/timescale/pgai.git /tmp/pgai && \
     cd /tmp/pgai/projects/extension && \
+    # Create and activate virtual environment
     python3 -m venv venv && \
     . venv/bin/activate && \
+    # Install uv package manager
     pip install --no-cache-dir uv==0.5.20 && \
+    # Set PostgreSQL paths
+    export PGCONFIG=/usr/bin/pg_config && \
+    export POSTGRES_HOME=/usr/lib/postgresql/16 && \
+    # Build and install pgai
     python3 build.py build && \
     python3 build.py install && \
     deactivate && \
+    # Verify installation
+    ls -la /usr/share/postgresql/16/extension/pgai* || true && \
+    ls -la /usr/lib/postgresql/16/lib/pgai* || true && \
+    # Clean up
+    cd / && \
     rm -rf /tmp/pgai
 
 # Install pg_cron
@@ -64,8 +83,25 @@ RUN git clone https://github.com/pramsey/pgsql-http.git && \
     make && \
     make install
 
+# Install Rust toolchain for pg_tiktoken
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+    rustup default stable
+
+# Install pg_tiktoken with correct cargo-pgrx version
+RUN cargo install cargo-pgrx --version 0.12.6 --locked && \
+    cargo pgrx init --pg16 /usr/bin/pg_config && \
+    cd /tmp && \
+    git clone https://github.com/kelvich/pg_tiktoken && \
+    cd pg_tiktoken && \
+    cargo pgrx install --pg-config /usr/bin/pg_config && \
+    rm -rf /tmp/pg_tiktoken
+
 # Create configuration snippet for entrypoint script (preload)
-RUN echo "shared_preload_libraries = 'pg_cron,pgvector,pgai,http'" > /docker-entrypoint-initdb.d/99_preload_config.conf && \
+RUN echo "shared_preload_libraries = 'pg_cron,pgvector,http'" > /docker-entrypoint-initdb.d/99_preload_config.conf && \
     echo "cron.database_name = 'neynar_parquet_importer'" >> /docker-entrypoint-initdb.d/99_preload_config.conf
 
 # Create configuration snippet for entrypoint script (performance)
