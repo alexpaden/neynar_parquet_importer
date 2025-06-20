@@ -69,7 +69,7 @@ RUN echo "shared_preload_libraries = 'pg_cron,pgvector,pgai,http'" > /docker-ent
     echo "cron.database_name = 'neynar_parquet_importer'" >> /docker-entrypoint-initdb.d/99_preload_config.conf
 
 # Create configuration snippet for entrypoint script (performance)
-RUN echo "max_connections = 100" > /docker-entrypoint-initdb.d/98_performance_config.conf && \
+RUN echo "max_connections = 250" > /docker-entrypoint-initdb.d/98_performance_config.conf && \
     echo "shared_buffers = '16GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
     echo "effective_cache_size = '48GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
     echo "maintenance_work_mem = '4GB'" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
@@ -98,7 +98,8 @@ RUN echo "max_connections = 100" > /docker-entrypoint-initdb.d/98_performance_co
     echo "huge_pages = try" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
     echo "dynamic_shared_memory_type = posix" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
     echo "vacuum_cost_delay = 2" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
-    echo "vacuum_cost_limit = 2000" >> /docker-entrypoint-initdb.d/98_performance_config.conf
+    echo "vacuum_cost_limit = 2000" >> /docker-entrypoint-initdb.d/98_performance_config.conf && \
+    echo "statement_timeout = 0" >> /docker-entrypoint-initdb.d/98_performance_config.conf
 
 # Expose PostgreSQL port
 EXPOSE 5432
