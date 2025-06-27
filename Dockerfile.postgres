@@ -91,17 +91,19 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
     rustup default stable
 
-# Install pg_tiktoken with correct cargo-pgrx version
+# Install pg_tiktoken with correct cargo-pgrx version (RELEASE MODE)
+# Using alexpaden fork with 650x performance improvements via encoder caching
 RUN cargo install cargo-pgrx --version 0.12.6 --locked && \
     cargo pgrx init --pg16 /usr/bin/pg_config && \
     cd /tmp && \
-    git clone https://github.com/kelvich/pg_tiktoken && \
+    git clone https://github.com/alexpaden/pg_tiktoken && \
     cd pg_tiktoken && \
-    cargo pgrx install --pg-config /usr/bin/pg_config && \
+    # Install in RELEASE mode for performance (not debug mode)
+    cargo pgrx install --release --pg-config /usr/bin/pg_config && \
     rm -rf /tmp/pg_tiktoken
 
 # Create configuration snippet for entrypoint script (preload)
-RUN echo "shared_preload_libraries = 'pg_cron,pgvector,http'" > /docker-entrypoint-initdb.d/99_preload_config.conf && \
+RUN echo "shared_preload_libraries = 'pg_cron','pgvector','http','pg_tiktoken'" > /docker-entrypoint-initdb.d/99_preload_config.conf && \
     echo "cron.database_name = 'neynar_parquet_importer'" >> /docker-entrypoint-initdb.d/99_preload_config.conf
 
 # Create configuration snippet for entrypoint script (performance)

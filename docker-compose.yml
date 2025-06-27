@@ -3,6 +3,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.postgres
+    platform: linux/arm64
     env_file:
       - .env.postgres
     environment:
