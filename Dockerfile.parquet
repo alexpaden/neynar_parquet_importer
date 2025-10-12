@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Install the project into `/app`
 WORKDIR /app
@@ -9,6 +9,9 @@ ENV UV_COMPILE_BYTECODE=1
 
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
+
+# Pin uv to use Python 3.13 to satisfy requires-python and ensure wheels
+ENV UV_PYTHON=3.13
 
 # Install system dependencies
 RUN apt-get update && \
